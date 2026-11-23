@@ -1,0 +1,241 @@
+{
+  "name": "Não perca o ônibus (e leve o guarda-chuva)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1-5"
+            }
+          ]
+        }
+      },
+      "name": "Dias úteis 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "-30.03"
+            },
+            {
+              "name": "longitude",
+              "value": "-51.23"
+            },
+            {
+              "name": "daily",
+              "value": "precipitation_probability_max,temperature_2m_max,temperature_2m_min"
+            },
+            {
+              "name": "timezone",
+              "value": "America/Sao_Paulo"
+            },
+            {
+              "name": "forecast_days",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Previsão do tempo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "chuva",
+              "value": "={{ $json.daily.precipitation_probability_max[0] }}",
+              "type": "number"
+            },
+            {
+              "id": "2",
+              "name": "tmax",
+              "value": "={{ Math.round($json.daily.temperature_2m_max[0]) }}",
+              "type": "number"
+            },
+            {
+              "id": "3",
+              "name": "tmin",
+              "value": "={{ Math.round($json.daily.temperature_2m_min[0]) }}",
+              "type": "number"
+            },
+            {
+              "id": "4",
+              "name": "onibus",
+              "value": "07:35",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "sair_as",
+              "value": "07:20",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Tratar dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.chuva }}",
+              "rightValue": 40,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Vai chover?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=🚌 Bom dia! Seu ônibus passa às {{ $json.onibus }}. Saia às {{ $json.sair_as }}.\n☔ Chance de chuva: {{ $json.chuva }}%. LEVE O GUARDA-CHUVA!\n🌡️ {{ $json.tmin }}°C a {{ $json.tmax }}°C",
+        "additionalFields": {}
+      },
+      "name": "Aviso com guarda-chuva",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        -100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=🚌 Bom dia! Seu ônibus passa às {{ $json.onibus }}. Saia às {{ $json.sair_as }}.\n☀️ Chance de chuva: {{ $json.chuva }}%. Pode sair sem guarda-chuva.\n🌡️ {{ $json.tmin }}°C a {{ $json.tmax }}°C",
+        "additionalFields": {}
+      },
+      "name": "Aviso normal",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Dias úteis 6h": {
+      "main": [
+        [
+          {
+            "node": "Previsão do tempo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Previsão do tempo": {
+      "main": [
+        [
+          {
+            "node": "Tratar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar dados": {
+      "main": [
+        [
+          {
+            "node": "Vai chover?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vai chover?": {
+      "main": [
+        [
+          {
+            "node": "Aviso com guarda-chuva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}
